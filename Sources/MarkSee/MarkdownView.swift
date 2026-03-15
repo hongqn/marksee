@@ -13,7 +13,7 @@ struct MarkdownView: View {
                 .frame(maxWidth: 860)
                 .frame(maxWidth: .infinity)
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(.background)
         .frame(minWidth: 600, minHeight: 400)
     }
 }

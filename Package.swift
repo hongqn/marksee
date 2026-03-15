@@ -5,7 +5,7 @@ let package = Package(
     name: "MarkSee",
     platforms: [.macOS(.v15)],
     dependencies: [
-        .package(url: "https://github.com/gonzalezreal/textual", branch: "main"),
+        .package(url: "https://github.com/gonzalezreal/textual", revision: "5b06b811c0f5313b6b84bbef98c635a630638c38"),
     ],
     targets: [
         .executableTarget(

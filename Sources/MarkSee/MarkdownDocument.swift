@@ -22,7 +22,9 @@ struct MarkdownDocument: FileDocument {
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let data = content.data(using: .utf8) ?? Data()
+        guard let data = content.data(using: .utf8) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
         return FileWrapper(regularFileWithContents: data)
     }
 }
