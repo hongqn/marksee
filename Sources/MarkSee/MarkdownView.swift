@@ -1,5 +1,6 @@
 import SwiftUI
 import Textual
+import MarkSeeCore
 
 struct MarkdownView: View {
     let document: MarkdownDocument

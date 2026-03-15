@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkSeeCore
 
 @main
 struct MarkSeeApp: App {
