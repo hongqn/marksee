@@ -3,3 +3,6 @@
 *.xcodeproj/
 *.xcworkspace/
 .DS_Store
+.agent/
+.agents/
+.claude/
