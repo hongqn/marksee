@@ -3,6 +3,7 @@ BUILD_DIR  = .build
 APP_BUNDLE = $(BUILD_DIR)/$(APP_NAME).app
 BINARY     = $(BUILD_DIR)/release/$(APP_NAME)
 PLIST_SRC  = Sources/MarkSee/Info.plist
+ICON_SRC   = Sources/MarkSee/AppIcon.icns
 
 .PHONY: build run dev clean
 
@@ -12,6 +13,8 @@ build:
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS
 	cp $(BINARY) $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
 	cp $(PLIST_SRC) $(APP_BUNDLE)/Contents/Info.plist
+	mkdir -p $(APP_BUNDLE)/Contents/Resources
+	cp $(ICON_SRC) $(APP_BUNDLE)/Contents/Resources/AppIcon.icns
 
 ## Build and launch the app
 run: build
