@@ -15,6 +15,7 @@ build:
 	cp $(PLIST_SRC) $(APP_BUNDLE)/Contents/Info.plist
 	mkdir -p $(APP_BUNDLE)/Contents/Resources
 	cp $(ICON_SRC) $(APP_BUNDLE)/Contents/Resources/AppIcon.icns
+	codesign --sign - --force --deep $(APP_BUNDLE)
 
 ## Build and launch the app
 run: build
