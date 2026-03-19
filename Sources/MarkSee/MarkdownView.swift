@@ -38,15 +38,15 @@ struct MarkdownView: View {
             }
         }
         .alert("Make MarkSee your default Markdown viewer?", isPresented: $showDefaultAppAlert) {
-            Button("Set as Default") {
+            Button("Open Settings") {
                 UserDefaults.standard.set(true, forKey: "hasPromptedForDefaultApp")
-                setAsDefaultMarkdownViewer()
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
             }
             Button("Not Now", role: .cancel) {
                 UserDefaults.standard.set(true, forKey: "hasPromptedForDefaultApp")
             }
         } message: {
-            Text("MarkSee will open .md and .markdown files automatically.")
+            Text("You can set MarkSee as the default app for .md files in Settings.")
         }
     }
 

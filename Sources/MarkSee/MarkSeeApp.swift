@@ -12,11 +12,10 @@ struct MarkSeeApp: App {
         }
         .commands {
             CommandGroup(replacing: .newItem) {}
-            CommandGroup(after: .help) {
-                Button("Set MarkSee as Default Markdown Viewer") {
-                    setAsDefaultMarkdownViewer()
-                }
-            }
+        }
+
+        Settings {
+            SettingsView()
         }
     }
 }
