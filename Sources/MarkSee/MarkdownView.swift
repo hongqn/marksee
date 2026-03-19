@@ -9,6 +9,7 @@ struct MarkdownView: View {
 
     @State private var showDefaultAppAlert = false
     @State private var editors: [EditorApp] = []
+    @State private var watcher = FileWatcher()
     @AppStorage("preferredEditorURL") private var preferredEditorURL: String = ""
 
     private var preferredEditor: EditorApp? {
@@ -19,7 +20,7 @@ struct MarkdownView: View {
 
     var body: some View {
         ScrollView {
-            StructuredText(markdown: document.content)
+            StructuredText(markdown: watcher.content)
                 .textual.structuredTextStyle(.gitHub)
                 .padding(.horizontal, 32)
                 .padding(.vertical, 24)
@@ -32,10 +33,18 @@ struct MarkdownView: View {
             editButton
         }
         .onAppear {
+            if let fileURL {
+                watcher.watch(url: fileURL, initialContent: document.content)
+            } else {
+                watcher.content = document.content
+            }
             loadEditors()
             if !UserDefaults.standard.bool(forKey: "hasPromptedForDefaultApp") {
                 showDefaultAppAlert = true
             }
+        }
+        .onDisappear {
+            watcher.stop()
         }
         .alert("Make MarkSee your default Markdown viewer?", isPresented: $showDefaultAppAlert) {
             Button("Open Settings") {
