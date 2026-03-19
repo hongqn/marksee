@@ -11,12 +11,21 @@ A lightweight macOS Markdown viewer that renders `.md` files with GitHub Flavore
 - **Edit button** — opens the current file in any editor detected on your system; remembers your last choice
 - **Default app integration** — prompts once after first use; can be set anytime via Help menu
 
-## Requirements
+## Installation
+
+```bash
+brew tap hongqn/marksee https://github.com/hongqn/marksee
+brew install --cask marksee
+```
+
+## Build from Source
+
+### Requirements
 
 - macOS 15+
 - Swift 6.0 / Xcode 16+
 
-## Build & Install
+### Build & Install
 
 ```bash
 make build          # build release .app bundle
