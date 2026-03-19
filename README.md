@@ -14,7 +14,7 @@ A lightweight macOS Markdown viewer that renders `.md` files with GitHub Flavore
 ## Installation
 
 ```bash
-brew tap hongqn/marksee https://github.com/hongqn/marksee
+brew tap hongqn/marksee
 brew install --cask marksee
 ```
 
