@@ -15,8 +15,10 @@ A lightweight macOS Markdown viewer that renders `.md` files with GitHub Flavore
 
 ```bash
 brew tap hongqn/marksee
-brew install --cask marksee
+brew install --cask --no-quarantine marksee
 ```
+
+> `--no-quarantine` is required because MarkSee is not yet notarized with Apple. Without it, macOS Gatekeeper will block the app from opening.
 
 ## Build from Source
 
