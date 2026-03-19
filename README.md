@@ -1,6 +1,6 @@
 # MarkSee
 
-<img src="icon.png" width="128" alt="MarkSee icon">
+<img src="icon.png" width="64" alt="MarkSee icon">
 
 A lightweight macOS Markdown viewer that renders `.md` files with GitHub Flavored Markdown styling, powered by [Textual](https://github.com/gonzalezreal/textual).
 
