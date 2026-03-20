@@ -129,31 +129,19 @@ struct MarkdownView: View {
     /// positioned over a code block.
     private func installScrollForwarder() {
         scrollEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
-            // Only intercept events that are primarily vertical.
-            guard abs(event.scrollingDeltaY) > abs(event.scrollingDeltaX),
-                  event.scrollingDeltaY != 0 else {
-                return event
-            }
+            guard isMainlyVertical(
+                deltaX: event.scrollingDeltaX,
+                deltaY: event.scrollingDeltaY
+            ) else { return event }
 
             guard let window = event.window,
                   let hitView = window.contentView?.hitTest(event.locationInWindow) else {
                 return event
             }
 
-            // Collect all NSScrollViews in the ancestor chain of the hit view.
-            var scrollViews: [NSScrollView] = []
-            var view: NSView? = hitView
-            while let v = view {
-                if let sv = v as? NSScrollView {
-                    scrollViews.append(sv)
-                }
-                view = v.superview
-            }
-
-            // If the pointer is inside at least two nested scroll views, the inner one
-            // is the code-block scroller and the outer one is the document List. Forward
-            // the event to the outermost scroll view and consume the original.
-            guard scrollViews.count >= 2, let outermost = scrollViews.last else {
+            // If the pointer is inside nested scroll views (code block inside List),
+            // forward the vertical event to the outermost (document) scroll view.
+            guard let outermost = outermostNestedScrollView(from: hitView) else {
                 return event
             }
 
