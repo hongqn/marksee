@@ -10,7 +10,9 @@ struct MarkSeeApp: App {
     var body: some Scene {
         WindowGroup(id: "welcome") {
             WelcomeView {
-                NSApp.keyWindow?.close()
+                for window in NSApp.windows where window.title == "MarkSee" && !(window.delegate is NSDocument) {
+                    window.close()
+                }
             }
         }
         .windowStyle(.hiddenTitleBar)
