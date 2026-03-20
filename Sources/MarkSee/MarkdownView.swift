@@ -13,6 +13,7 @@ struct MarkdownView: View {
     @State private var watcher = FileWatcher()
     @AppStorage("preferredEditorURL") private var preferredEditorURL: String = ""
     @State private var copyEventMonitor: Any? = nil
+    @State private var scrollEventMonitor: Any? = nil
 
     private var preferredEditor: EditorApp? {
         guard !preferredEditorURL.isEmpty else { return nil }
@@ -50,10 +51,12 @@ struct MarkdownView: View {
                 showDefaultAppAlert = true
             }
             installCopyEnricher()
+            installScrollForwarder()
         }
         .onDisappear {
             watcher.stop()
             removeCopyEnricher()
+            removeScrollForwarder()
         }
         .alert("Make MarkSee your default Markdown viewer?", isPresented: $showDefaultAppAlert) {
             Button("Open Settings") {
@@ -116,6 +119,54 @@ struct MarkdownView: View {
             withApplicationAt: editor.url,
             configuration: NSWorkspace.OpenConfiguration()
         )
+    }
+
+    // MARK: - Scroll forwarding
+
+    /// Installs a local scroll-wheel monitor that forwards vertical scroll events from
+    /// nested scroll views (e.g. code-block horizontal scrollers) to the outermost
+    /// scroll view so that the document continues to scroll even when the pointer is
+    /// positioned over a code block.
+    private func installScrollForwarder() {
+        scrollEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            // Only intercept events that are primarily vertical.
+            guard abs(event.scrollingDeltaY) > abs(event.scrollingDeltaX),
+                  event.scrollingDeltaY != 0 else {
+                return event
+            }
+
+            guard let window = event.window,
+                  let hitView = window.contentView?.hitTest(event.locationInWindow) else {
+                return event
+            }
+
+            // Collect all NSScrollViews in the ancestor chain of the hit view.
+            var scrollViews: [NSScrollView] = []
+            var view: NSView? = hitView
+            while let v = view {
+                if let sv = v as? NSScrollView {
+                    scrollViews.append(sv)
+                }
+                view = v.superview
+            }
+
+            // If the pointer is inside at least two nested scroll views, the inner one
+            // is the code-block scroller and the outer one is the document List. Forward
+            // the event to the outermost scroll view and consume the original.
+            guard scrollViews.count >= 2, let outermost = scrollViews.last else {
+                return event
+            }
+
+            outermost.scrollWheel(with: event)
+            return nil
+        }
+    }
+
+    private func removeScrollForwarder() {
+        if let monitor = scrollEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            scrollEventMonitor = nil
+        }
     }
 
     // MARK: - Copy enrichment
