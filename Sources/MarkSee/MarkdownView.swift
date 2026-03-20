@@ -43,6 +43,7 @@ struct MarkdownView: View {
         .onAppear {
             if let fileURL {
                 watcher.watch(url: fileURL, initialContent: document.content)
+                noteRecentDocument(fileURL)
             } else {
                 watcher.content = document.content
             }
@@ -203,6 +204,13 @@ private func enrichPasteboard(_ pasteboard: NSPasteboard) {
     pasteboard.addTypes([.string], owner: nil)
     pasteboard.setString(markdown, forType: .string)
     _ = currentTypes  // types remain declared; only .string content is replaced
+}
+
+private func noteRecentDocument(_ url: URL) {
+    var paths = UserDefaults.standard.stringArray(forKey: "recentDocumentPaths") ?? []
+    paths.removeAll { $0 == url.path }
+    paths.insert(url.path, at: 0)
+    UserDefaults.standard.set(Array(paths.prefix(20)), forKey: "recentDocumentPaths")
 }
 
 struct EditorApp: Identifiable {

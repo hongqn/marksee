@@ -21,7 +21,9 @@ struct WelcomeView: View {
         }
         .frame(width: 720, height: 440)
         .onAppear {
-            recentURLs = NSDocumentController.shared.recentDocumentURLs
+            let paths = UserDefaults.standard.stringArray(forKey: "recentDocumentPaths") ?? []
+            recentURLs = paths
+                .compactMap { URL(fileURLWithPath: $0) }
                 .filter { FileManager.default.fileExists(atPath: $0.path) }
         }
     }
