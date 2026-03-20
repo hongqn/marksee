@@ -26,6 +26,7 @@ struct MarkdownView: View {
                 .padding(.vertical, 24)
                 .frame(maxWidth: 860)
                 .frame(maxWidth: .infinity)
+                .textSelection(.enabled)
         }
         .background(.background)
         .frame(minWidth: 600, minHeight: 400)

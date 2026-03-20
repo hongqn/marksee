@@ -6,11 +6,21 @@ import AppKit
 @main
 struct MarkSeeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     var body: some Scene {
+        WindowGroup(id: "welcome") {
+            WelcomeView {
+                NSApp.keyWindow?.close()
+            }
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultLaunchBehavior(.presented)
+
         DocumentGroup(viewing: MarkdownDocument.self) { file in
             MarkdownView(document: file.document, fileURL: file.fileURL)
                 .navigationTitle(file.fileURL?.deletingPathExtension().lastPathComponent ?? "")
         }
+        .defaultLaunchBehavior(.suppressed)
         .commands {
             CommandGroup(replacing: .newItem) {}
         }
