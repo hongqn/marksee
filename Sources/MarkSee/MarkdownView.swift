@@ -21,15 +21,19 @@ struct MarkdownView: View {
     }
 
     var body: some View {
-        ScrollView {
+        List {
             StructuredText(markdown: watcher.content)
                 .textual.structuredTextStyle(.gitHub)
                 .textual.textSelection(.enabled)
-                .padding(.horizontal, 32)
-                .padding(.vertical, 24)
                 .frame(maxWidth: 860)
                 .frame(maxWidth: .infinity)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 24)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets())
         }
+        .listStyle(.plain)
         .background(.background)
         .frame(minWidth: 600, minHeight: 400)
         .toolbar {
