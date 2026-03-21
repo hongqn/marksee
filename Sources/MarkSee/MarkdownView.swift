@@ -15,6 +15,10 @@ struct MarkdownView: View {
     @State private var copyEventMonitor: Any? = nil
     @State private var scrollEventMonitor: Any? = nil
 
+    // MARK: - TOC
+    @AppStorage("tocVisible") private var tocVisible = false
+    private var headings: [MarkdownHeading] { extractHeadings(from: watcher.content) }
+
     // MARK: - Find
     @State private var isShowingFind = false
     @State private var findQuery = ""
@@ -28,37 +32,49 @@ struct MarkdownView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if isShowingFind {
-                FindBar(
-                    query: $findQuery,
-                    matchCount: searchMatches.count,
-                    currentMatchIndex: findMatchIndex,
-                    onNext: nextMatch,
-                    onPrevious: previousMatch,
-                    onDismiss: dismissFind
-                )
-                .transition(.move(edge: .top).combined(with: .opacity))
+        HStack(spacing: 0) {
+            if tocVisible && !headings.isEmpty {
+                TOCSidebar(headings: headings) { heading in
+                    scrollToFraction(CGFloat(scrollFraction(
+                        forCharacterOffset: heading.characterOffset,
+                        totalLength: watcher.content.count
+                    )))
+                }
+                Divider()
             }
-            List {
-                StructuredText(markdown: watcher.content)
-                    .textual.structuredTextStyle(.gitHub)
-                    .textual.textSelection(.enabled)
-                    .frame(maxWidth: 860)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 24)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets())
+            VStack(spacing: 0) {
+                if isShowingFind {
+                    FindBar(
+                        query: $findQuery,
+                        matchCount: searchMatches.count,
+                        currentMatchIndex: findMatchIndex,
+                        onNext: nextMatch,
+                        onPrevious: previousMatch,
+                        onDismiss: dismissFind
+                    )
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                List {
+                    StructuredText(markdown: watcher.content)
+                        .textual.structuredTextStyle(.gitHub)
+                        .textual.textSelection(.enabled)
+                        .frame(maxWidth: 860)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 32)
+                        .padding(.vertical, 24)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets())
+                }
+                .listStyle(.plain)
+                .background(.background)
             }
-            .listStyle(.plain)
-            .background(.background)
         }
         .background(WindowFrameObserver(fileURL: fileURL))
         .frame(minWidth: 600, minHeight: 400)
         .focusedValue(\.isShowingFind, $isShowingFind)
         .toolbar {
+            tocToggleButton
             editButton
         }
         .onChange(of: findQuery) { _, _ in updateFindMatches() }
@@ -97,6 +113,19 @@ struct MarkdownView: View {
             }
         } message: {
             Text("You can set MarkSee as the default app for .md files in Settings.")
+        }
+    }
+
+    @ViewBuilder
+    private var tocToggleButton: some View {
+        if !headings.isEmpty {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { tocVisible.toggle() }
+            } label: {
+                Label("Table of Contents", systemImage: "list.bullet.indent")
+            }
+            .help(tocVisible ? "Hide Table of Contents" : "Show Table of Contents")
+            .accessibilityLabel(tocVisible ? "Hide Table of Contents" : "Show Table of Contents")
         }
     }
 
