@@ -57,7 +57,7 @@ struct MarkdownView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 List {
-                    StructuredText(markdown: watcher.content)
+                    StructuredText(markdown: watcher.content, syntaxExtensions: [.math])
                         .textual.structuredTextStyle(.gitHub)
                         .textual.textSelection(.enabled)
                         .frame(maxWidth: 860)

@@ -7,7 +7,7 @@ struct PrintableMarkdownView: View {
     let content: String
 
     var body: some View {
-        StructuredText(markdown: content)
+        StructuredText(markdown: content, syntaxExtensions: [.math])
             .textual.structuredTextStyle(.gitHub)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 8)
