@@ -340,7 +340,7 @@ private func enrichPasteboard(_ pasteboard: NSPasteboard) {
     _ = currentTypes  // types remain declared; only .string content is replaced
 }
 
-private func noteRecentDocument(_ url: URL) {
+func noteRecentDocument(_ url: URL) {
     var paths = UserDefaults.standard.stringArray(forKey: "recentDocumentPaths") ?? []
     paths.removeAll { $0 == url.path }
     paths.insert(url.path, at: 0)

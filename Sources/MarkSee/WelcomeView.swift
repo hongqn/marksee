@@ -141,6 +141,7 @@ struct WelcomeView: View {
     }
 
     private func open(_ url: URL) {
+        noteRecentDocument(url)
         NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, _ in
             DispatchQueue.main.async { onOpenFile() }
         }
