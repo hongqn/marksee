@@ -20,12 +20,17 @@ struct WelcomeView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: 720, height: 440)
-        .onAppear {
-            let paths = UserDefaults.standard.stringArray(forKey: "recentDocumentPaths") ?? []
-            recentURLs = paths
-                .compactMap { URL(fileURLWithPath: $0) }
-                .filter { FileManager.default.fileExists(atPath: $0.path) }
+        .onAppear { reloadRecentURLs() }
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+            reloadRecentURLs()
         }
+    }
+
+    private func reloadRecentURLs() {
+        let paths = UserDefaults.standard.stringArray(forKey: "recentDocumentPaths") ?? []
+        recentURLs = paths
+            .compactMap { URL(fileURLWithPath: $0) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
     }
 
     private var leftPanel: some View {
