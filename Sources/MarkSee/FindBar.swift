@@ -80,9 +80,19 @@ struct FindVisibilityKey: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
+/// Key for propagating the print action from MarkdownView to app commands.
+struct PrintActionKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
 extension FocusedValues {
     var isShowingFind: Binding<Bool>? {
         get { self[FindVisibilityKey.self] }
         set { self[FindVisibilityKey.self] = newValue }
+    }
+
+    var printAction: (() -> Void)? {
+        get { self[PrintActionKey.self] }
+        set { self[PrintActionKey.self] = newValue }
     }
 }

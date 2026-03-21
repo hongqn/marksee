@@ -73,6 +73,7 @@ struct MarkdownView: View {
         .background(WindowFrameObserver(fileURL: fileURL))
         .frame(minWidth: 600, minHeight: 400)
         .focusedValue(\.isShowingFind, $isShowingFind)
+        .focusedValue(\.printAction, printDocument)
         .toolbar {
             tocToggleButton
             editButton
@@ -160,6 +161,33 @@ struct MarkdownView: View {
             }
             .disabled(fileURL == nil)
         }
+    }
+
+    // MARK: - Print
+
+    private func printDocument() {
+        let printView = PrintableMarkdownView(content: watcher.content)
+        let hostingView = NSHostingView(rootView: printView)
+        // Size to a standard US Letter page width (points at 72 dpi).
+        let pageWidth: CGFloat = 8.5 * 72
+        hostingView.frame = CGRect(x: 0, y: 0, width: pageWidth, height: 1)
+        // Let the view compute its natural height.
+        hostingView.frame.size.height = hostingView.fittingSize.height
+
+        let printInfo = NSPrintInfo.shared.copy() as! NSPrintInfo
+        printInfo.horizontalPagination = .fit
+        printInfo.verticalPagination = .automatic
+        printInfo.isHorizontallyCentered = false
+        printInfo.isVerticallyCentered = false
+        printInfo.leftMargin = 54
+        printInfo.rightMargin = 54
+        printInfo.topMargin = 54
+        printInfo.bottomMargin = 54
+
+        let op = NSPrintOperation(view: hostingView, printInfo: printInfo)
+        op.showsPrintPanel = true
+        op.showsProgressPanel = true
+        op.run()
     }
 
     // MARK: - Find
