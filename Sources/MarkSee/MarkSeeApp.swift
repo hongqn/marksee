@@ -6,6 +6,7 @@ import AppKit
 @main
 struct MarkSeeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @FocusedValue(\.isShowingFind) private var isShowingFind: Binding<Bool>?
 
     var body: some Scene {
         WindowGroup(id: "welcome") {
@@ -25,6 +26,15 @@ struct MarkSeeApp: App {
         .defaultLaunchBehavior(.suppressed)
         .commands {
             CommandGroup(replacing: .newItem) {}
+            CommandMenu("Find") {
+                Button("Find…") {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isShowingFind?.wrappedValue = true
+                    }
+                }
+                .keyboardShortcut("f", modifiers: .command)
+                .disabled(isShowingFind == nil)
+            }
         }
 
         Settings {

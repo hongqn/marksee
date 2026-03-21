@@ -3,6 +3,7 @@ import AppKit
 @testable import MarkSeeCore
 
 @Suite("ScrollEventForwarding")
+@MainActor
 struct ScrollEventForwardingTests {
 
     // MARK: - outermostNestedScrollView

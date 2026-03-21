@@ -15,6 +15,12 @@ struct MarkdownView: View {
     @State private var copyEventMonitor: Any? = nil
     @State private var scrollEventMonitor: Any? = nil
 
+    // MARK: - Find
+    @State private var isShowingFind = false
+    @State private var findQuery = ""
+    @State private var searchMatches: [SearchMatch] = []
+    @State private var findMatchIndex = 0
+
     private var preferredEditor: EditorApp? {
         guard !preferredEditorURL.isEmpty else { return nil }
         let url = URL(filePath: preferredEditorURL)
@@ -22,24 +28,45 @@ struct MarkdownView: View {
     }
 
     var body: some View {
-        List {
-            StructuredText(markdown: watcher.content)
-                .textual.structuredTextStyle(.gitHub)
-                .textual.textSelection(.enabled)
-                .frame(maxWidth: 860)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 32)
-                .padding(.vertical, 24)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets())
+        VStack(spacing: 0) {
+            if isShowingFind {
+                FindBar(
+                    query: $findQuery,
+                    matchCount: searchMatches.count,
+                    currentMatchIndex: findMatchIndex,
+                    onNext: nextMatch,
+                    onPrevious: previousMatch,
+                    onDismiss: dismissFind
+                )
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+            List {
+                StructuredText(markdown: watcher.content)
+                    .textual.structuredTextStyle(.gitHub)
+                    .textual.textSelection(.enabled)
+                    .frame(maxWidth: 860)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 24)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets())
+            }
+            .listStyle(.plain)
+            .background(.background)
         }
-        .listStyle(.plain)
-        .background(.background)
         .background(WindowFrameObserver(fileURL: fileURL))
         .frame(minWidth: 600, minHeight: 400)
+        .focusedValue(\.isShowingFind, $isShowingFind)
         .toolbar {
             editButton
+        }
+        .onChange(of: findQuery) { _, _ in updateFindMatches() }
+        .onChange(of: watcher.content) { _, _ in updateFindMatches() }
+        .onKeyPress(.escape) {
+            guard isShowingFind else { return .ignored }
+            dismissFind()
+            return .handled
         }
         .onAppear {
             if let fileURL {
@@ -104,6 +131,53 @@ struct MarkdownView: View {
             }
             .disabled(fileURL == nil)
         }
+    }
+
+    // MARK: - Find
+
+    private func updateFindMatches() {
+        searchMatches = findMatches(in: watcher.content, query: findQuery)
+        findMatchIndex = 0
+        scrollToCurrentMatch()
+    }
+
+    private func nextMatch() {
+        guard !searchMatches.isEmpty else { return }
+        findMatchIndex = (findMatchIndex + 1) % searchMatches.count
+        scrollToCurrentMatch()
+    }
+
+    private func previousMatch() {
+        guard !searchMatches.isEmpty else { return }
+        findMatchIndex = (findMatchIndex - 1 + searchMatches.count) % searchMatches.count
+        scrollToCurrentMatch()
+    }
+
+    private func dismissFind() {
+        withAnimation(.easeInOut(duration: 0.15)) { isShowingFind = false }
+        findQuery = ""
+        searchMatches = []
+        findMatchIndex = 0
+    }
+
+    private func scrollToCurrentMatch() {
+        guard !searchMatches.isEmpty else { return }
+        let match = searchMatches[findMatchIndex]
+        let fraction = scrollFraction(
+            forCharacterOffset: match.characterOffset,
+            totalLength: watcher.content.count
+        )
+        scrollToFraction(CGFloat(fraction))
+    }
+
+    @MainActor
+    private func scrollToFraction(_ fraction: CGFloat) {
+        guard let window = NSApp.keyWindow,
+              let scrollView = window.contentView?.documentScrollView else { return }
+        let contentHeight = scrollView.documentView?.bounds.height ?? 0
+        let visibleHeight = scrollView.contentSize.height
+        let maxY = max(0, contentHeight - visibleHeight)
+        scrollView.documentView?.scroll(CGPoint(x: 0, y: maxY * fraction))
     }
 
     private func loadEditors() {
@@ -212,6 +286,22 @@ private func noteRecentDocument(_ url: URL) {
     paths.removeAll { $0 == url.path }
     paths.insert(url.path, at: 0)
     UserDefaults.standard.set(Array(paths.prefix(20)), forKey: "recentDocumentPaths")
+}
+
+// MARK: - NSView helpers
+
+private extension NSView {
+    /// Returns the largest NSScrollView in the subtree, used to find the document scroller.
+    var documentScrollView: NSScrollView? {
+        var all: [NSScrollView] = []
+        collectScrollViews(into: &all)
+        return all.max { $0.bounds.height < $1.bounds.height }
+    }
+
+    private func collectScrollViews(into list: inout [NSScrollView]) {
+        if let sv = self as? NSScrollView { list.append(sv) }
+        for sub in subviews { sub.collectScrollViews(into: &list) }
+    }
 }
 
 struct EditorApp: Identifiable {
