@@ -57,16 +57,15 @@ struct MarkdownView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 List {
-                    StructuredText(markdown: watcher.content, syntaxExtensions: [.math])
-                        .textual.structuredTextStyle(.gitHub)
-                        .textual.textSelection(.enabled)
-                        .frame(maxWidth: 860)
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 32)
-                        .padding(.vertical, 24)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets())
+                    ForEach(splitSegments(watcher.content)) { segment in
+                        MarkdownSegmentView(segment: segment)
+                            .frame(maxWidth: 860)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 32)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets())
+                    }
                 }
                 .listStyle(.plain)
                 .background(.background)
