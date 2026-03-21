@@ -12,6 +12,8 @@ struct MarkdownView: View {
     @State private var editors: [EditorApp] = []
     @State private var watcher = FileWatcher()
     @AppStorage("preferredEditorURL") private var preferredEditorURL: String = ""
+    @AppStorage("theme") private var themeRawValue: String = MarkSeeTheme.system.rawValue
+    private var theme: MarkSeeTheme { MarkSeeTheme(rawValue: themeRawValue) ?? .system }
     @State private var copyEventMonitor: Any? = nil
     @State private var scrollEventMonitor: Any? = nil
 
@@ -74,6 +76,7 @@ struct MarkdownView: View {
         .frame(minWidth: 600, minHeight: 400)
         .focusedValue(\.isShowingFind, $isShowingFind)
         .focusedValue(\.printAction, printDocument)
+        .preferredColorScheme(theme.colorScheme)
         .toolbar {
             tocToggleButton
             editButton
