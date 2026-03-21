@@ -58,7 +58,7 @@ struct MarkdownView: View {
                 }
                 List {
                     ForEach(splitSegments(watcher.content)) { segment in
-                        MarkdownSegmentView(segment: segment)
+                        MarkdownSegmentView(segment: segment, findQuery: findQuery)
                             .frame(maxWidth: 860)
                             .frame(maxWidth: .infinity)
                             .padding(.horizontal, 32)

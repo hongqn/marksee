@@ -16,8 +16,15 @@ struct MermaidView: NSViewRepresentable {
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
-        let html = buildHTML(for: diagram)
-        webView.loadHTMLString(html, baseURL: nil)
+        // Load from the bundle directory so the HTML can reference mermaid.min.js locally.
+        if let resourceDir = Bundle.module.resourceURL {
+            let htmlURL = resourceDir.appendingPathComponent("mermaid-diagram.html")
+            let html = buildHTML(for: diagram, useLocalJS: true)
+            try? html.write(to: htmlURL, atomically: true, encoding: .utf8)
+            webView.loadFileURL(htmlURL, allowingReadAccessTo: resourceDir)
+        } else {
+            webView.loadHTMLString(buildHTML(for: diagram, useLocalJS: false), baseURL: nil)
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -37,9 +44,10 @@ struct MermaidView: NSViewRepresentable {
 
     // MARK: - HTML generation
 
-    private func buildHTML(for diagram: String) -> String {
-        // Mermaid JS is inlined from the bundled resource.
-        // The diagram source is JSON-encoded to safely embed in JS.
+    private func buildHTML(for diagram: String, useLocalJS: Bool) -> String {
+        let scriptTag = useLocalJS
+            ? "<script src=\"mermaid.min.js\"></script><script>mermaid.initialize({ startOnLoad: true, theme: 'base' });</script>"
+            : "<script type=\"module\">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';mermaid.initialize({ startOnLoad: true, theme: 'base' });</script>"
         return """
         <!DOCTYPE html>
         <html>
@@ -55,10 +63,7 @@ struct MermaidView: NSViewRepresentable {
         <div id="diagram">
           <pre class="mermaid">\(escapeHTML(diagram))</pre>
         </div>
-        <script type="module">
-          import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-          mermaid.initialize({ startOnLoad: true, theme: 'base' });
-        </script>
+        \(scriptTag)
         </body>
         </html>
         """

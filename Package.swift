@@ -19,7 +19,10 @@ let package = Package(
                 .product(name: "Textual", package: "textual"),
             ],
             path: "Sources/MarkSee",
-            exclude: ["Info.plist", "AppIcon.icns"]
+            exclude: ["Info.plist", "AppIcon.icns"],
+            resources: [
+                .process("Resources"),
+            ]
         ),
         .testTarget(
             name: "MarkSeeTests",

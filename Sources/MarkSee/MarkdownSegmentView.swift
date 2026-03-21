@@ -54,13 +54,21 @@ func splitSegments(_ markdown: String) -> [MarkdownSegment] {
 /// Renders a single document segment — either markdown text or a Mermaid diagram.
 struct MarkdownSegmentView: View {
     let segment: MarkdownSegment
+    /// Active search query; non-empty enables match highlighting.
+    var findQuery: String = ""
 
     var body: some View {
         switch segment {
         case .markdown(let text):
-            StructuredText(markdown: text, syntaxExtensions: [.math])
-                .textual.structuredTextStyle(.gitHub)
-                .textual.textSelection(.enabled)
+            if findQuery.isEmpty {
+                StructuredText(markdown: text, syntaxExtensions: [.math])
+                    .textual.structuredTextStyle(.gitHub)
+                    .textual.textSelection(.enabled)
+            } else {
+                StructuredText(text, parser: HighlightingMarkupParser(query: findQuery))
+                    .textual.structuredTextStyle(.gitHub)
+                    .textual.textSelection(.enabled)
+            }
         case .mermaid(let diagram):
             MermaidView(diagram: diagram)
                 .frame(height: 300)
