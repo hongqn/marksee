@@ -31,6 +31,7 @@ struct FindBar: View {
                 Image(systemName: "chevron.up")
             }
             .help("Previous Match (⇧↩)")
+            .accessibilityLabel("Previous Match")
             .disabled(matchCount == 0)
             .buttonStyle(.plain)
 
@@ -38,6 +39,7 @@ struct FindBar: View {
                 Image(systemName: "chevron.down")
             }
             .help("Next Match (↩)")
+            .accessibilityLabel("Next Match")
             .disabled(matchCount == 0)
             .buttonStyle(.plain)
 
@@ -47,6 +49,7 @@ struct FindBar: View {
                 Image(systemName: "xmark")
             }
             .help("Close Find Bar (⎋)")
+            .accessibilityLabel("Close Find Bar")
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 12)
@@ -71,6 +74,7 @@ struct FindBar: View {
                 .foregroundStyle(.secondary)
                 .font(.callout)
                 .monospacedDigit()
+                .accessibilityLabel("Match \(currentMatchIndex + 1) of \(matchCount)")
         }
     }
 }

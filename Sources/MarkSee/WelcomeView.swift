@@ -36,6 +36,7 @@ struct WelcomeView: View {
                 Image(nsImage: icon)
                     .resizable()
                     .frame(width: 80, height: 80)
+                    .accessibilityHidden(true)
             }
 
             Text("MarkSee")
@@ -116,6 +117,9 @@ struct WelcomeView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(url.deletingPathExtension().lastPathComponent)
+        .accessibilityHint(url.deletingLastPathComponent().path
+            .replacingOccurrences(of: NSHomeDirectory(), with: "~"))
         .onHover { hovered in
             hoveredURL = hovered ? url : nil
         }
