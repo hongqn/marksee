@@ -36,6 +36,7 @@ struct MarkdownView: View {
         }
         .listStyle(.plain)
         .background(.background)
+        .background(WindowFrameObserver(fileURL: fileURL))
         .frame(minWidth: 600, minHeight: 400)
         .toolbar {
             editButton
