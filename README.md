@@ -16,6 +16,8 @@ A lightweight macOS Markdown viewer that renders `.md` files with GitHub Flavore
 - **Theme switching** — System, GitHub Light, or GitHub Dark (via Settings)
 - **Edit button** — opens the current file in any editor detected on your system; remembers your last choice
 - **Default app integration** — prompts once after first use; can be set anytime via Settings
+- **LaTeX math** — inline (`$...$`) and display (`$$...$$`) math equations rendered natively
+- **Mermaid diagrams** — fenced ` ```mermaid ``` ` blocks rendered as interactive diagrams (no network required)
 
 ## Installation
 
@@ -86,11 +88,14 @@ To build a signed, notarized DMG for distribution:
 - **Theme**: Open Settings (`Cmd+,`) → Appearance to switch between System, GitHub Light, and GitHub Dark.
 - **Edit**: Click the Edit button in the toolbar to open the file in an external editor.
 - **Set as default viewer**: On first file open, MarkSee asks if you'd like to be set as the default. You can also do this anytime via **Settings → File Associations**.
+- **LaTeX math**: Write `$E = mc^2$` for inline math or `$$...$$` for display math.
+- **Mermaid diagrams**: Use a fenced code block with language `mermaid` to embed flowcharts, sequence diagrams, and more.
 
 ## Tech Stack
 
 - SwiftUI `DocumentGroup` — document-based app architecture
-- [Textual](https://github.com/gonzalezreal/textual) — Markdown rendering
+- [Textual](https://github.com/gonzalezreal/textual) — Markdown rendering with math support
+- `WKWebView` — Mermaid diagram rendering (bundled JS, no CDN)
 - `NSWorkspace` — editor discovery and default app registration
 - `NSPrintOperation` — native print / export to PDF
 
