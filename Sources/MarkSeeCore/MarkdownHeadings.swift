@@ -24,24 +24,22 @@ public struct MarkdownHeading: Equatable, Sendable {
 public func extractHeadings(from markdown: String) -> [MarkdownHeading] {
     var headings: [MarkdownHeading] = []
     var insideCodeFence = false
-    var offset = markdown.startIndex
+    var charOffset = 0  // running character count — O(n) total, avoids O(n²) distance() calls
 
     for line in markdown.split(separator: "\n", omittingEmptySubsequences: false) {
         let lineStr = String(line)
-        let lineOffset = markdown.distance(from: markdown.startIndex, to: offset)
 
         // Toggle code-fence state on opening/closing ``` or ~~~
         if lineStr.hasPrefix("```") || lineStr.hasPrefix("~~~") {
             insideCodeFence.toggle()
         }
 
-        if !insideCodeFence, let heading = parseATXHeading(from: lineStr, offset: lineOffset) {
+        if !insideCodeFence, let heading = parseATXHeading(from: lineStr, offset: charOffset) {
             headings.append(heading)
         }
 
-        // Advance offset past this line and the newline character.
-        offset = markdown.index(offset, offsetBy: lineStr.utf16.count + 1, limitedBy: markdown.endIndex)
-            ?? markdown.endIndex
+        // Advance past this line and the newline character.
+        charOffset += lineStr.count + 1
     }
     return headings
 }

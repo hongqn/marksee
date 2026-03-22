@@ -26,6 +26,7 @@ struct MarkdownView: View {
     @State private var findQuery = ""
     @State private var searchMatches: [SearchMatch] = []
     @State private var findMatchIndex = 0
+    @State private var findTask: Task<Void, Never>? = nil
 
     private var preferredEditor: EditorApp? {
         guard !preferredEditorURL.isEmpty else { return nil }
@@ -105,6 +106,7 @@ struct MarkdownView: View {
             watcher.stop()
             removeCopyEnricher()
             removeScrollForwarder()
+            findTask?.cancel()
         }
         .alert("Make MarkSee your default Markdown viewer?", isPresented: $showDefaultAppAlert) {
             Button("Open Settings") {
@@ -195,9 +197,19 @@ struct MarkdownView: View {
     // MARK: - Find
 
     private func updateFindMatches() {
-        searchMatches = findMatches(in: watcher.content, query: findQuery)
-        findMatchIndex = 0
-        scrollToCurrentMatch()
+        findTask?.cancel()
+        let content = watcher.content
+        let query = findQuery
+        findTask = Task {
+            // Run the expensive Unicode search off the main actor.
+            let matches = await Task.detached {
+                findMatches(in: content, query: query)
+            }.value
+            guard !Task.isCancelled else { return }
+            searchMatches = matches
+            findMatchIndex = 0
+            scrollToCurrentMatch()
+        }
     }
 
     private func nextMatch() {
