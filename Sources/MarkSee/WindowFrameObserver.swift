@@ -8,18 +8,31 @@ import SwiftUI
 struct WindowFrameObserver: NSViewRepresentable {
     let fileURL: URL?
 
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        // Window is not yet available at makeNSView time; defer to next run-loop turn.
-        DispatchQueue.main.async {
-            context.coordinator.attach(to: view.window, fileURL: fileURL)
-        }
+    func makeNSView(context: Context) -> ObserverView {
+        let view = ObserverView()
+        view.coordinator = context.coordinator
+        view.fileURL = fileURL
         return view
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    func updateNSView(_ nsView: ObserverView, context: Context) {}
 
     func makeCoordinator() -> Coordinator { Coordinator() }
+
+    // MARK: - NSView subclass
+
+    /// Uses `viewDidMoveToWindow` — the AppKit-guaranteed callback for when a
+    /// view enters a window — so we never miss the attachment due to timing.
+    final class ObserverView: NSView {
+        var coordinator: Coordinator?
+        var fileURL: URL?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let window else { return }
+            coordinator?.attach(to: window, fileURL: fileURL)
+        }
+    }
 
     // MARK: -
 
@@ -31,7 +44,7 @@ struct WindowFrameObserver: NSViewRepresentable {
         nonisolated(unsafe) private var tokens: [NSObjectProtocol] = []
 
         func attach(to window: NSWindow?, fileURL: URL?) {
-            guard let window else { return }
+            guard let window, tokens.isEmpty else { return }
             self.fileURL = fileURL
 
             applyFrame(to: window)
