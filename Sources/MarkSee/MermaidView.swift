@@ -16,6 +16,9 @@ struct MermaidView: NSViewRepresentable {
     }
 
     func updateNSView(_ webView: WKWebView, context: Context) {
+        guard diagram != context.coordinator.lastDiagram else { return }
+        context.coordinator.lastDiagram = diagram
+
         // Load from the bundle directory so the HTML can reference mermaid.min.js locally.
         if let resourceDir = Bundle.module.resourceURL {
             let htmlURL = resourceDir.appendingPathComponent("mermaid-diagram.html")
@@ -32,6 +35,8 @@ struct MermaidView: NSViewRepresentable {
     }
 
     class Coordinator: NSObject, WKNavigationDelegate {
+        var lastDiagram: String?
+
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             // After loading, ask the page for the rendered SVG height and resize.
             webView.evaluateJavaScript("document.body.scrollHeight") { result, _ in

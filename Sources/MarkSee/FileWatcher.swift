@@ -58,7 +58,9 @@ final class FileWatcher {
         guard let url = watchedURL,
               let text = try? String(contentsOf: url, encoding: .utf8)
         else { return }
-        content = text
+        if text != content {
+            content = text
+        }
     }
 
     nonisolated func cleanup() {

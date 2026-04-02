@@ -19,7 +19,10 @@ struct MarkdownView: View {
 
     // MARK: - TOC
     @AppStorage("tocVisible") private var tocVisible = false
-    private var headings: [MarkdownHeading] { extractHeadings(from: watcher.content) }
+    @State private var headings: [MarkdownHeading] = []
+
+    // MARK: - Cached segments
+    @State private var segments: [MarkdownSegment] = []
 
     // MARK: - Find
     @State private var isShowingFind = false
@@ -58,7 +61,7 @@ struct MarkdownView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 List {
-                    ForEach(splitSegments(watcher.content)) { segment in
+                    ForEach(segments) { segment in
                         MarkdownSegmentView(segment: segment, findQuery: findQuery)
                             .frame(maxWidth: 860)
                             .frame(maxWidth: .infinity)
@@ -82,7 +85,10 @@ struct MarkdownView: View {
             editButton
         }
         .onChange(of: findQuery) { _, _ in updateFindMatches() }
-        .onChange(of: watcher.content) { _, _ in updateFindMatches() }
+        .onChange(of: watcher.content) { _, _ in
+            updateFindMatches()
+            recomputeCaches()
+        }
         .onKeyPress(.escape) {
             guard isShowingFind else { return .ignored }
             dismissFind()
@@ -95,6 +101,7 @@ struct MarkdownView: View {
             } else {
                 watcher.content = document.content
             }
+            recomputeCaches()
             loadEditors()
             if !UserDefaults.standard.bool(forKey: "hasPromptedForDefaultApp") {
                 showDefaultAppAlert = true
@@ -192,6 +199,13 @@ struct MarkdownView: View {
         op.showsPrintPanel = true
         op.showsProgressPanel = true
         op.run()
+    }
+
+    // MARK: - Cached recomputation
+
+    private func recomputeCaches() {
+        segments = splitSegments(watcher.content)
+        headings = extractHeadings(from: watcher.content)
     }
 
     // MARK: - Find
