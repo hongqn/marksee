@@ -61,7 +61,7 @@ struct MarkdownView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 List {
-                    ForEach(segments) { segment in
+                    ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
                         MarkdownSegmentView(segment: segment, findQuery: findQuery)
                             .frame(maxWidth: 860)
                             .frame(maxWidth: .infinity)
