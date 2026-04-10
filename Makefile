@@ -16,11 +16,23 @@ SIGN_IDENTITY  ?=
 ## Build a release .app bundle
 build:
 	swift build -c release
+	@# Patch SPM resource-bundle accessors to also check Bundle.main.resourceURL
+	@# so bundles placed in Contents/Resources/ are found inside a .app wrapper.
+	@# The first patch gets overwritten by SPM regeneration on a clean build,
+	@# so we patch-and-build twice (the second round sticks).
+	@python3 scripts/patch-resource-accessors.py $(BUILD_DIR)/arm64-apple-macosx/release
+	swift build -c release
+	@python3 scripts/patch-resource-accessors.py $(BUILD_DIR)/arm64-apple-macosx/release
+	swift build -c release
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS
 	cp $(BINARY) $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
 	cp $(PLIST_SRC) $(APP_BUNDLE)/Contents/Info.plist
 	mkdir -p $(APP_BUNDLE)/Contents/Resources
 	cp $(ICON_SRC) $(APP_BUNDLE)/Contents/Resources/AppIcon.icns
+	@# Copy SPM resource bundles into Contents/Resources/
+	@for b in $(BUILD_DIR)/arm64-apple-macosx/release/*.bundle; do \
+	  [ -d "$$b" ] && cp -R "$$b" "$(APP_BUNDLE)/Contents/Resources/"; \
+	done
 	@if [ -n "$(SIGN_IDENTITY)" ]; then \
 	  echo "Signing with Developer ID: $(SIGN_IDENTITY)"; \
 	  codesign --sign "$(SIGN_IDENTITY)" --force --deep --options runtime \
