@@ -1,3 +1,13 @@
+## 0.2.1 - 2026-04-10
+
+### Performance
+- Split markdown at heading boundaries for lazy scroll rendering
+- Fix high CPU usage when window is in foreground (idle CPU drops to 0%)
+
+### Fixes
+- Fix crash when opening markdown files containing dollar amounts (e.g. `$14.90/mo`)
+  that triggered LaTeX math parsing with missing resource bundles
+
 ## 0.2.0 - 2026-03-31
 
 ### Features
