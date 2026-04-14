@@ -1,3 +1,9 @@
+## 0.2.2 - 2026-04-10
+
+### Fixes
+- Fix content appearing centered instead of left-aligned after heading-based
+  segment splitting
+
 ## 0.2.1 - 2026-04-10
 
 ### Performance
