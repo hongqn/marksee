@@ -63,7 +63,8 @@ struct MarkdownView: View {
                 List {
                     ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
                         MarkdownSegmentView(segment: segment, findQuery: findQuery)
-                            .frame(maxWidth: 860)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(maxWidth: 860, alignment: .leading)
                             .frame(maxWidth: .infinity)
                             .padding(.horizontal, 32)
                             .listRowBackground(Color.clear)
