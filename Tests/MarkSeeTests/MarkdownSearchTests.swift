@@ -95,4 +95,40 @@ struct MarkdownSearchTests {
         #expect(scrollFraction(forCharacterOffset: 0, totalLength: 0) == 0)
         #expect(scrollFraction(forCharacterOffset: 5, totalLength: 0) == 0)
     }
+
+    // MARK: - Progressive query refinement (debounce regression)
+
+    @Test("progressive typing narrows results monotonically")
+    func progressiveTyping() {
+        let text = "searching for search terms in searchable content"
+        let q1 = findMatches(in: text, query: "s")
+        let q2 = findMatches(in: text, query: "se")
+        let q3 = findMatches(in: text, query: "sea")
+        let q4 = findMatches(in: text, query: "sear")
+        // Each longer query should return equal or fewer matches.
+        #expect(q1.count >= q2.count)
+        #expect(q2.count >= q3.count)
+        #expect(q3.count >= q4.count)
+        // The final query "sear" should match "searching", "search", "searchable"
+        #expect(q4.count == 3)
+    }
+
+    @Test("same query always returns identical results")
+    func idempotent() {
+        let text = "# Title\n\nSome **bold** text with [links](url) and `code`.\n\n## Another heading"
+        let query = "text"
+        let run1 = findMatches(in: text, query: query)
+        let run2 = findMatches(in: text, query: query)
+        #expect(run1 == run2)
+    }
+
+    @Test("match length equals query length for ASCII")
+    func matchLengthConsistency() {
+        let text = "hello world hello swift"
+        let query = "hello"
+        let matches = findMatches(in: text, query: query)
+        for match in matches {
+            #expect(match.matchLength == query.count)
+        }
+    }
 }
