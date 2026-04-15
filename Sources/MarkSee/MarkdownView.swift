@@ -23,15 +23,20 @@ struct MarkdownView: View {
 
     // MARK: - Cached segments
     @State private var segments: [MarkdownSegment] = []
+    /// Maps heading index → segment index for TOC scroll navigation.
+    @State private var headingSegmentMap: [Int] = []
 
     // MARK: - Find
     @State private var isShowingFind = false
     @State private var findQuery = ""
     @State private var debouncedFindQuery = ""
-    @State private var searchMatches: [SearchMatch] = []
+    @State private var searchMatchCount = 0
+    /// Segment index for each match, parallel to the match count.
+    @State private var matchSegmentIndices: [Int] = []
     @State private var findMatchIndex = 0
     @State private var findTask: Task<Void, Never>? = nil
     @State private var debounceTask: Task<Void, Never>? = nil
+    @State private var scrollTarget: Int? = nil
 
     private var preferredEditor: EditorApp? {
         guard !preferredEditorURL.isEmpty else { return nil }
@@ -43,10 +48,10 @@ struct MarkdownView: View {
         HStack(spacing: 0) {
             if tocVisible && !headings.isEmpty {
                 TOCSidebar(headings: headings) { heading in
-                    scrollToFraction(CGFloat(scrollFraction(
-                        forCharacterOffset: heading.characterOffset,
-                        totalLength: watcher.content.count
-                    )))
+                    if let idx = headings.firstIndex(where: { $0 == heading }),
+                       idx < headingSegmentMap.count {
+                        scrollTarget = headingSegmentMap[idx]
+                    }
                 }
                 Divider()
             }
@@ -54,7 +59,7 @@ struct MarkdownView: View {
                 if isShowingFind {
                     FindBar(
                         query: $findQuery,
-                        matchCount: searchMatches.count,
+                        matchCount: searchMatchCount,
                         currentMatchIndex: findMatchIndex,
                         onNext: nextMatch,
                         onPrevious: previousMatch,
@@ -62,20 +67,30 @@ struct MarkdownView: View {
                     )
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                List {
-                    ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
-                        MarkdownSegmentView(segment: segment, findQuery: debouncedFindQuery)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .frame(maxWidth: 860, alignment: .leading)
-                            .frame(maxWidth: .infinity)
-                            .padding(.horizontal, 32)
-                            .padding(.top, index > 0 ? 20 : 0)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets())
+                ScrollViewReader { proxy in
+                    List {
+                        ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
+                            MarkdownSegmentView(segment: segment, findQuery: debouncedFindQuery)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .frame(maxWidth: 860, alignment: .leading)
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 32)
+                                .padding(.top, index > 0 ? 20 : 0)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets())
+                                .id(index)
+                        }
+                    }
+                    .listStyle(.plain)
+                    .onChange(of: scrollTarget) { _, target in
+                        guard let target else { return }
+                        withAnimation {
+                            proxy.scrollTo(target, anchor: .top)
+                        }
+                        scrollTarget = nil
                     }
                 }
-                .listStyle(.plain)
                 .background(.background)
             }
         }
@@ -224,35 +239,64 @@ struct MarkdownView: View {
     private func recomputeCaches() {
         segments = splitSegments(watcher.content)
         headings = extractHeadings(from: watcher.content)
+
+        // Each heading is the first line of its segment (by splitByHeadings design).
+        // Build a parallel array mapping heading index → segment index.
+        var map: [Int] = []
+        var headingIdx = 0
+        for (segIdx, segment) in segments.enumerated() {
+            guard headingIdx < headings.count else { break }
+            if case .markdown(let text) = segment {
+                let prefix = String(repeating: "#", count: headings[headingIdx].level)
+                if text.hasPrefix(prefix) {
+                    map.append(segIdx)
+                    headingIdx += 1
+                }
+            }
+        }
+        headingSegmentMap = map
     }
 
     // MARK: - Find
 
     private func updateFindMatches() {
         findTask?.cancel()
-        let content = watcher.content
+        let segs = segments
         let query = debouncedFindQuery
         findTask = Task {
-            // Run the expensive Unicode search off the main actor.
-            let matches = await Task.detached {
-                findMatches(in: content, query: query)
+            // Search each segment independently off the main actor.
+            let result = await Task.detached {
+                var totalCount = 0
+                var segIndices: [Int] = []
+                for (index, segment) in segs.enumerated() {
+                    let text: String
+                    switch segment {
+                    case .markdown(let t): text = t
+                    case .mermaid(let t):  text = t
+                    }
+                    let matches = findMatches(in: text, query: query)
+                    totalCount += matches.count
+                    segIndices.append(contentsOf: Array(repeating: index, count: matches.count))
+                }
+                return (totalCount, segIndices)
             }.value
             guard !Task.isCancelled else { return }
-            searchMatches = matches
+            searchMatchCount = result.0
+            matchSegmentIndices = result.1
             findMatchIndex = 0
             scrollToCurrentMatch()
         }
     }
 
     private func nextMatch() {
-        guard !searchMatches.isEmpty else { return }
-        findMatchIndex = (findMatchIndex + 1) % searchMatches.count
+        guard searchMatchCount > 0 else { return }
+        findMatchIndex = (findMatchIndex + 1) % searchMatchCount
         scrollToCurrentMatch()
     }
 
     private func previousMatch() {
-        guard !searchMatches.isEmpty else { return }
-        findMatchIndex = (findMatchIndex - 1 + searchMatches.count) % searchMatches.count
+        guard searchMatchCount > 0 else { return }
+        findMatchIndex = (findMatchIndex - 1 + searchMatchCount) % searchMatchCount
         scrollToCurrentMatch()
     }
 
@@ -261,28 +305,14 @@ struct MarkdownView: View {
         debounceTask?.cancel()
         findQuery = ""
         debouncedFindQuery = ""
-        searchMatches = []
+        searchMatchCount = 0
+        matchSegmentIndices = []
         findMatchIndex = 0
     }
 
     private func scrollToCurrentMatch() {
-        guard !searchMatches.isEmpty else { return }
-        let match = searchMatches[findMatchIndex]
-        let fraction = scrollFraction(
-            forCharacterOffset: match.characterOffset,
-            totalLength: watcher.content.count
-        )
-        scrollToFraction(CGFloat(fraction))
-    }
-
-    @MainActor
-    private func scrollToFraction(_ fraction: CGFloat) {
-        guard let window = NSApp.keyWindow,
-              let scrollView = window.contentView?.documentScrollView else { return }
-        let contentHeight = scrollView.documentView?.bounds.height ?? 0
-        let visibleHeight = scrollView.contentSize.height
-        let maxY = max(0, contentHeight - visibleHeight)
-        scrollView.documentView?.scroll(CGPoint(x: 0, y: maxY * fraction))
+        guard !matchSegmentIndices.isEmpty else { return }
+        scrollTarget = matchSegmentIndices[findMatchIndex]
     }
 
     private func loadEditors() {
@@ -391,22 +421,6 @@ func noteRecentDocument(_ url: URL) {
     paths.removeAll { $0 == url.path }
     paths.insert(url.path, at: 0)
     UserDefaults.standard.set(Array(paths.prefix(20)), forKey: "recentDocumentPaths")
-}
-
-// MARK: - NSView helpers
-
-private extension NSView {
-    /// Returns the largest NSScrollView in the subtree, used to find the document scroller.
-    var documentScrollView: NSScrollView? {
-        var all: [NSScrollView] = []
-        collectScrollViews(into: &all)
-        return all.max { $0.bounds.height < $1.bounds.height }
-    }
-
-    private func collectScrollViews(into list: inout [NSScrollView]) {
-        if let sv = self as? NSScrollView { list.append(sv) }
-        for sub in subviews { sub.collectScrollViews(into: &list) }
-    }
 }
 
 struct EditorApp: Identifiable {

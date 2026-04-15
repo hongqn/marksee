@@ -108,15 +108,9 @@ struct MarkdownSegmentView: View {
     var body: some View {
         switch segment {
         case .markdown(let text):
-            if findQuery.isEmpty {
-                StructuredText(markdown: text, syntaxExtensions: [.math])
-                    .textual.structuredTextStyle(.gitHub)
-                    .textual.textSelection(.enabled)
-            } else {
-                StructuredText(text, parser: HighlightingMarkupParser(query: findQuery))
-                    .textual.structuredTextStyle(.gitHub)
-                    .textual.textSelection(.enabled)
-            }
+            StructuredText(text, parser: HighlightingMarkupParser(query: findQuery))
+                .textual.structuredTextStyle(.gitHub)
+                .textual.textSelection(.enabled)
         case .mermaid(let diagram):
             MermaidView(diagram: diagram)
                 .frame(height: 300)
