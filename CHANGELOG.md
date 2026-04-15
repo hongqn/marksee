@@ -1,3 +1,9 @@
+## 0.2.3 - 2026-04-15
+
+### Performance
+- Debounce search query (300ms) to prevent per-keystroke re-rendering of all
+  segments — fixes slow typing in find bar and partial highlight race condition
+
 ## 0.2.2 - 2026-04-15
 
 ### Fixes
