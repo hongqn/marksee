@@ -1,8 +1,9 @@
-## 0.2.2 - 2026-04-10
+## 0.2.2 - 2026-04-15
 
 ### Fixes
 - Fix content appearing centered instead of left-aligned after heading-based
   segment splitting
+- Restore paragraph spacing between heading segments
 
 ## 0.2.1 - 2026-04-10
 

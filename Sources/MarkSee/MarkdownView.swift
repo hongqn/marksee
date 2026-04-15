@@ -61,12 +61,13 @@ struct MarkdownView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 List {
-                    ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
+                    ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
                         MarkdownSegmentView(segment: segment, findQuery: findQuery)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .frame(maxWidth: 860, alignment: .leading)
                             .frame(maxWidth: .infinity)
                             .padding(.horizontal, 32)
+                            .padding(.top, index > 0 ? 20 : 0)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                             .listRowInsets(EdgeInsets())
