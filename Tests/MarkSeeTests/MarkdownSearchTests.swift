@@ -131,4 +131,41 @@ struct MarkdownSearchTests {
             #expect(match.matchLength == query.count)
         }
     }
+
+    // MARK: - markdownTextExcludingFencedCodeBlocks
+
+    @Test("searchable markdown excludes fenced code blocks")
+    func searchableMarkdownExcludesFencedCodeBlocks() {
+        let markdown = """
+        target before
+
+        ```swift
+        let value = "target in code"
+        ```
+
+        target after
+        """
+
+        let searchable = markdownTextExcludingFencedCodeBlocks(markdown)
+        let matches = findMatches(in: searchable, query: "target")
+        #expect(matches.count == 2)
+        #expect(!searchable.contains("target in code"))
+    }
+
+    @Test("searchable markdown excludes tilde fenced code blocks")
+    func searchableMarkdownExcludesTildeFencedCodeBlocks() {
+        let markdown = """
+        target before
+
+        ~~~
+        target in code
+        ~~~
+
+        target after
+        """
+
+        let searchable = markdownTextExcludingFencedCodeBlocks(markdown)
+        let matches = findMatches(in: searchable, query: "target")
+        #expect(matches.count == 2)
+    }
 }

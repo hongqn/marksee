@@ -8,6 +8,7 @@ Bundle.main.resourceURL.
 """
 
 import glob
+import re
 import sys
 
 build_dir = sys.argv[1] if len(sys.argv) > 1 else ".build/arm64-apple-macosx/release"
@@ -22,5 +23,17 @@ new = (
 pattern = f"{build_dir}/*.build/DerivedSources/resource_bundle_accessor.swift"
 for path in glob.glob(pattern):
     content = open(path).read()
-    if old in content:
-        open(path, "w").write(content.replace(old, new))
+    content = re.sub(
+        r"(\n\s*let resourcePath = \(Bundle\.main\.resourceURL \?\? Bundle\.main\.bundleURL\)"
+        r"\.appendingPathComponent\(\(mainPath as NSString\)\.lastPathComponent\)\.path)+",
+        r"\1",
+        content,
+    )
+    content = re.sub(
+        r"let preferredBundle = Bundle\(path: mainPath\)(?: \?\? Bundle\(path: resourcePath\))+",
+        "let preferredBundle = Bundle(path: mainPath) ?? Bundle(path: resourcePath)",
+        content,
+    )
+    if "let resourcePath =" not in content and old in content:
+        content = content.replace(old, new)
+    open(path, "w").write(content)

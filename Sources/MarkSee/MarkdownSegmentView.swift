@@ -2,7 +2,7 @@ import SwiftUI
 import Textual
 
 /// A single renderable segment within a markdown document.
-enum MarkdownSegment: Identifiable {
+enum MarkdownSegment: Identifiable, Equatable {
     case markdown(String)
     case mermaid(String)
 
@@ -109,6 +109,7 @@ struct MarkdownSegmentView: View {
         switch segment {
         case .markdown(let text):
             StructuredText(text, parser: HighlightingMarkupParser(query: findQuery))
+                .id(findQuery)
                 .textual.structuredTextStyle(.gitHub)
                 .textual.textSelection(.enabled)
         case .mermaid(let diagram):

@@ -6,19 +6,38 @@ import Textual
 /// rendered text.  Case- and diacritic-insensitive matching is used, consistent
 /// with ``findMatches(in:query:)``.
 @MainActor
-struct HighlightingMarkupParser: MarkupParser {
+struct HighlightingMarkupParser: MarkupParser, Equatable {
     let query: String
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.query == rhs.query
+    }
 
     private static let base = AttributedStringMarkdownParser(
         baseURL: nil,
         syntaxExtensions: [.math]
     )
 
-    func attributedString(for input: String) throws -> AttributedString {
-        var result = try Self.base.attributedString(for: input)
-        guard !query.isEmpty else { return result }
+    /// Caches base (unhighlighted) attributed strings to avoid re-parsing
+    /// markdown when only the search query changes.
+    private static var parsedCache: [String: AttributedString] = [:]
 
-        // Search in the rendered plain text (markdown syntax stripped).
+    static func clearCache() {
+        parsedCache.removeAll()
+    }
+
+    func attributedString(for input: String) throws -> AttributedString {
+        let baseResult: AttributedString
+        if let cached = Self.parsedCache[input] {
+            baseResult = cached
+        } else {
+            baseResult = try Self.base.attributedString(for: input)
+            Self.parsedCache[input] = baseResult
+        }
+        guard !query.isEmpty else { return baseResult }
+
+        // Apply highlights on a copy of the cached base.
+        var result = baseResult
         let plainText = String(result.characters)
         var searchRange = plainText.startIndex..<plainText.endIndex
         let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]

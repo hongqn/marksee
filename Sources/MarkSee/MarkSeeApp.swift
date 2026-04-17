@@ -6,8 +6,7 @@ import AppKit
 @main
 struct MarkSeeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @FocusedValue(\.isShowingFind) private var isShowingFind: Binding<Bool>?
-    @FocusedValue(\.printAction) private var printAction: (() -> Void)?
+    @StateObject private var documentCommands = DocumentCommandRegistry()
 
     var body: some Scene {
         WindowGroup(id: "welcome") {
@@ -23,25 +22,24 @@ struct MarkSeeApp: App {
         DocumentGroup(viewing: MarkdownDocument.self) { file in
             MarkdownView(document: file.document, fileURL: file.fileURL)
                 .navigationTitle(file.fileURL?.deletingPathExtension().lastPathComponent ?? "")
+                .environmentObject(documentCommands)
         }
         .defaultLaunchBehavior(.suppressed)
         .commands {
             CommandGroup(replacing: .newItem) {}
             CommandGroup(replacing: .printItem) {
                 Button("Print…") {
-                    printAction?()
+                    documentCommands.printActiveDocument()
                 }
                 .keyboardShortcut("p", modifiers: .command)
-                .disabled(printAction == nil)
+                .disabled(!documentCommands.hasActiveDocument)
             }
             CommandMenu("Find") {
                 Button("Find…") {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        isShowingFind?.wrappedValue = true
-                    }
+                    documentCommands.showFind()
                 }
                 .keyboardShortcut("f", modifiers: .command)
-                .disabled(isShowingFind == nil)
+                .disabled(!documentCommands.hasActiveDocument)
             }
         }
 

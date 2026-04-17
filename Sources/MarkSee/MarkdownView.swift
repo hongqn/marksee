@@ -8,6 +8,8 @@ struct MarkdownView: View {
     let document: MarkdownDocument
     let fileURL: URL?
 
+    @EnvironmentObject private var documentCommands: DocumentCommandRegistry
+    @State private var commandRegistrationID = UUID()
     @State private var showDefaultAppAlert = false
     @State private var editors: [EditorApp] = []
     @State private var watcher = FileWatcher()
@@ -28,14 +30,14 @@ struct MarkdownView: View {
 
     // MARK: - Find
     @State private var isShowingFind = false
-    @State private var findQuery = ""
     @State private var debouncedFindQuery = ""
     @State private var searchMatchCount = 0
     /// Segment index for each match, parallel to the match count.
     @State private var matchSegmentIndices: [Int] = []
+    /// Segments that contain at least one match — only these receive the query.
+    @State private var matchingSegments: Set<Int> = []
     @State private var findMatchIndex = 0
     @State private var findTask: Task<Void, Never>? = nil
-    @State private var debounceTask: Task<Void, Never>? = nil
     @State private var scrollTarget: Int? = nil
 
     private var preferredEditor: EditorApp? {
@@ -58,9 +60,11 @@ struct MarkdownView: View {
             VStack(spacing: 0) {
                 if isShowingFind {
                     FindBar(
-                        query: $findQuery,
                         matchCount: searchMatchCount,
                         currentMatchIndex: findMatchIndex,
+                        onQueryChange: { query in
+                            updateFindMatches(settingQuery: query)
+                        },
                         onNext: nextMatch,
                         onPrevious: previousMatch,
                         onDismiss: dismissFind
@@ -70,7 +74,7 @@ struct MarkdownView: View {
                 ScrollViewReader { proxy in
                     List {
                         ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
-                            MarkdownSegmentView(segment: segment, findQuery: debouncedFindQuery)
+                            MarkdownSegmentView(segment: segment, findQuery: matchingSegments.contains(index) ? debouncedFindQuery : "")
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .frame(maxWidth: 860, alignment: .leading)
                                 .frame(maxWidth: .infinity)
@@ -95,31 +99,28 @@ struct MarkdownView: View {
             }
         }
         .background(WindowFrameObserver(fileURL: fileURL))
+        .background(
+            DocumentCommandObserver {
+                documentCommands.activate(
+                    id: commandRegistrationID,
+                    find: showFind,
+                    print: printDocument
+                )
+            } onDeactivate: {
+                documentCommands.deactivate(id: commandRegistrationID)
+            }
+        )
         .frame(minWidth: 600, minHeight: 400)
-        .focusedValue(\.isShowingFind, $isShowingFind)
-        .focusedValue(\.printAction, printDocument)
         .preferredColorScheme(theme.colorScheme)
         .toolbar {
             tocToggleButton
             editButton
         }
-        .onChange(of: findQuery) { _, newQuery in
-            debounceTask?.cancel()
-            if newQuery.isEmpty {
-                debouncedFindQuery = ""
-                updateFindMatches()
-            } else {
-                debounceTask = Task {
-                    try? await Task.sleep(for: .milliseconds(300))
-                    guard !Task.isCancelled else { return }
-                    debouncedFindQuery = newQuery
-                    updateFindMatches()
-                }
-            }
-        }
         .onChange(of: watcher.content) { _, _ in
-            updateFindMatches()
             recomputeCaches()
+            if !debouncedFindQuery.isEmpty {
+                updateFindMatches()
+            }
         }
         .onKeyPress(.escape) {
             guard isShowingFind else { return .ignored }
@@ -146,7 +147,6 @@ struct MarkdownView: View {
             removeCopyEnricher()
             removeScrollForwarder()
             findTask?.cancel()
-            debounceTask?.cancel()
         }
         .alert("Make MarkSee your default Markdown viewer?", isPresented: $showDefaultAppAlert) {
             Button("Open Settings") {
@@ -239,6 +239,7 @@ struct MarkdownView: View {
     private func recomputeCaches() {
         segments = splitSegments(watcher.content)
         headings = extractHeadings(from: watcher.content)
+        HighlightingMarkupParser.clearCache()
 
         // Each heading is the first line of its segment (by splitByHeadings design).
         // Build a parallel array mapping heading index → segment index.
@@ -259,31 +260,56 @@ struct MarkdownView: View {
 
     // MARK: - Find
 
-    private func updateFindMatches() {
+    private func showFind() {
+        withAnimation(.easeInOut(duration: 0.15)) {
+            isShowingFind = true
+        }
+    }
+
+    /// Searches all segments for the query. When `settingQuery` is provided,
+    /// `debouncedFindQuery` is updated atomically with the results so that
+    /// `matchingSegments` is ready before views re-render.
+    private func updateFindMatches(settingQuery newQuery: String? = nil) {
         findTask?.cancel()
         let segs = segments
-        let query = debouncedFindQuery
+        let query = newQuery ?? debouncedFindQuery
+        guard !query.isEmpty else {
+            matchingSegments = []
+            searchMatchCount = 0
+            matchSegmentIndices = []
+            findMatchIndex = 0
+            if let newQuery { debouncedFindQuery = newQuery }
+            return
+        }
         findTask = Task {
-            // Search each segment independently off the main actor.
+            // Run the expensive search off the main actor.
             let result = await Task.detached {
                 var totalCount = 0
                 var segIndices: [Int] = []
+                var matchSet: Set<Int> = []
                 for (index, segment) in segs.enumerated() {
                     let text: String
                     switch segment {
-                    case .markdown(let t): text = t
-                    case .mermaid(let t):  text = t
+                    case .markdown(let t):
+                        text = markdownTextExcludingFencedCodeBlocks(t)
+                    case .mermaid:
+                        text = ""
                     }
                     let matches = findMatches(in: text, query: query)
                     totalCount += matches.count
                     segIndices.append(contentsOf: Array(repeating: index, count: matches.count))
+                    if !matches.isEmpty { matchSet.insert(index) }
                 }
-                return (totalCount, segIndices)
+                return (totalCount, segIndices, matchSet)
             }.value
             guard !Task.isCancelled else { return }
+            // Set matchingSegments BEFORE debouncedFindQuery so the ForEach
+            // sees the correct set when it re-renders.
+            matchingSegments = result.2
             searchMatchCount = result.0
             matchSegmentIndices = result.1
             findMatchIndex = 0
+            if let newQuery { debouncedFindQuery = newQuery }
             scrollToCurrentMatch()
         }
     }
@@ -302,9 +328,9 @@ struct MarkdownView: View {
 
     private func dismissFind() {
         withAnimation(.easeInOut(duration: 0.15)) { isShowingFind = false }
-        debounceTask?.cancel()
-        findQuery = ""
+        findTask?.cancel()
         debouncedFindQuery = ""
+        matchingSegments = []
         searchMatchCount = 0
         matchSegmentIndices = []
         findMatchIndex = 0
