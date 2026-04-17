@@ -290,8 +290,8 @@ struct MarkdownView: View {
                 for (index, segment) in segs.enumerated() {
                     let text: String
                     switch segment {
-                    case .markdown(let t):
-                        text = markdownTextExcludingFencedCodeBlocks(t)
+                    case .markdown(let t), .codeBlock(_, let t):
+                        text = t
                     case .mermaid:
                         text = ""
                     }

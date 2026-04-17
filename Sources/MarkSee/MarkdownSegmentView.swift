@@ -4,11 +4,13 @@ import Textual
 /// A single renderable segment within a markdown document.
 enum MarkdownSegment: Identifiable, Equatable {
     case markdown(String)
+    case codeBlock(language: String?, code: String)
     case mermaid(String)
 
     var id: String {
         switch self {
         case .markdown(let s): return "md:\(s.hashValue)"
+        case .codeBlock(let language, let code): return "code:\(language ?? ""):\(code.hashValue)"
         case .mermaid(let s):  return "mermaid:\(s.hashValue)"
         }
     }
@@ -18,77 +20,82 @@ enum MarkdownSegment: Identifiable, Equatable {
 /// Markdown portions are further split at heading boundaries so that SwiftUI's
 /// List can lazily render only visible sections.
 func splitSegments(_ markdown: String) -> [MarkdownSegment] {
-    let pattern = #"```mermaid\n([\s\S]*?)```"#
-    guard let regex = try? NSRegularExpression(pattern: pattern) else {
-        return splitByHeadings(markdown)
-    }
-    let nsString = markdown as NSString
-    let range = NSRange(location: 0, length: nsString.length)
-    let matches = regex.matches(in: markdown, range: range)
-    guard !matches.isEmpty else { return splitByHeadings(markdown) }
-
     var segments: [MarkdownSegment] = []
-    var cursor = markdown.startIndex
+    var markdownChunk: [Substring] = []
+    var fencedChunk: [Substring] = []
+    var fenceMarker: String?
+    var fenceLanguage: String?
 
-    for match in matches {
-        // Text before this mermaid block
-        if let fullRange = Range(match.range, in: markdown) {
-            let before = String(markdown[cursor..<fullRange.lowerBound])
-            if !before.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                segments.append(contentsOf: splitByHeadings(before))
-            }
-            // The mermaid diagram source (capture group 1)
-            if let contentRange = Range(match.range(at: 1), in: markdown) {
-                let diagram = String(markdown[contentRange]).trimmingCharacters(in: .newlines)
-                segments.append(.mermaid(diagram))
-            }
-            cursor = fullRange.upperBound
+    func flushMarkdown() {
+        let text = markdownChunk.joined(separator: "\n")
+        if !text.allSatisfy(\.isWhitespace) {
+            segments.append(.markdown(text))
         }
+        markdownChunk = []
     }
-    // Remaining text after the last mermaid block
-    let tail = String(markdown[cursor...])
-    if !tail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-        segments.append(contentsOf: splitByHeadings(tail))
+
+    func flushFence() {
+        let code = fencedChunk.joined(separator: "\n")
+        if fenceLanguage?.lowercased() == "mermaid" {
+            segments.append(.mermaid(code.trimmingCharacters(in: .newlines)))
+        } else {
+            segments.append(.codeBlock(language: fenceLanguage, code: code))
+        }
+        fencedChunk = []
+        fenceMarker = nil
+        fenceLanguage = nil
     }
-    return segments
-}
-
-/// Splits markdown text into segments at heading boundaries, respecting code fences.
-private func splitByHeadings(_ markdown: String) -> [MarkdownSegment] {
-    guard !markdown.isEmpty else { return [] }
-
-    var segments: [MarkdownSegment] = []
-    var currentChunk: [Substring] = []
-    var inCodeFence = false
 
     for line in markdown.split(separator: "\n", omittingEmptySubsequences: false) {
         let trimmed = line.drop(while: { $0 == " " || $0 == "\t" })
 
-        if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
-            inCodeFence.toggle()
-        }
-
-        let isHeading = !inCodeFence && isMarkdownHeading(trimmed)
-
-        if isHeading && !currentChunk.isEmpty {
-            let text = currentChunk.joined(separator: "\n")
-            if !text.allSatisfy(\.isWhitespace) {
-                segments.append(.markdown(text))
+        if let activeMarker = fenceMarker {
+            if closesFence(trimmed, marker: activeMarker) {
+                flushFence()
+            } else {
+                fencedChunk.append(line)
             }
-            currentChunk = []
+            continue
         }
 
-        currentChunk.append(line)
+        if let fence = openingFence(in: trimmed) {
+            flushMarkdown()
+            fenceMarker = fence.marker
+            fenceLanguage = fence.language
+            continue
+        }
+
+        let isHeading = isMarkdownHeading(trimmed)
+        if isHeading && !markdownChunk.isEmpty {
+            flushMarkdown()
+        }
+        markdownChunk.append(line)
     }
 
-    if !currentChunk.isEmpty {
-        let text = currentChunk.joined(separator: "\n")
-        if !text.allSatisfy(\.isWhitespace) {
-            segments.append(.markdown(text))
-        }
+    if fenceMarker != nil {
+        flushFence()
     }
+    flushMarkdown()
 
     return segments
+}
+
+private func openingFence(in line: Substring) -> (marker: String, language: String?)? {
+    let marker: String
+    if line.hasPrefix("```") {
+        marker = "```"
+    } else if line.hasPrefix("~~~") {
+        marker = "~~~"
+    } else {
+        return nil
+    }
+
+    let info = line.dropFirst(marker.count).trimmingCharacters(in: .whitespaces)
+    return (marker, info.isEmpty ? nil : info)
+}
+
+private func closesFence(_ line: Substring, marker: String) -> Bool {
+    line.hasPrefix(marker)
 }
 
 /// Returns true when `line` is an ATX heading (1–6 `#` followed by a space or end-of-line).
@@ -112,11 +119,117 @@ struct MarkdownSegmentView: View {
                 .id(findQuery)
                 .textual.structuredTextStyle(.gitHub)
                 .textual.textSelection(.enabled)
+        case .codeBlock(let language, let code):
+            if findQuery.isEmpty {
+                StructuredText(markdown: fencedMarkdown(language: language, code: code))
+                    .textual.structuredTextStyle(.gitHub)
+                    .textual.textSelection(.enabled)
+            } else {
+                SearchableCodeBlockView(language: language, code: code, findQuery: findQuery)
+            }
         case .mermaid(let diagram):
             MermaidView(diagram: diagram)
                 .frame(height: 300)
                 .frame(maxWidth: .infinity)
                 .accessibilityLabel("Mermaid diagram")
+        }
+    }
+}
+
+private func fencedMarkdown(language: String?, code: String) -> String {
+    let info = language.map { " \($0)" } ?? ""
+    return "```\(info)\n\(code)\n```"
+}
+
+private struct SearchableCodeBlockView: View {
+    let language: String?
+    let code: String
+    let findQuery: String
+
+    @State private var tokens: [CodeSyntaxToken] = []
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            Text(highlightedCode)
+                .font(.system(.body, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+        }
+        .background(Color(nsColor: .textBackgroundColor).opacity(0.45))
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+        )
+        .accessibilityLabel(language.map { "Code block, \($0)" } ?? "Code block")
+        .task(id: "\(language ?? "")\u{0}\(code)") {
+            tokens = await CodeSyntaxTokenizer.shared.tokenize(code: code, language: language)
+        }
+    }
+
+    private var highlightedCode: AttributedString {
+        var result = AttributedString()
+        for token in tokens.isEmpty ? [CodeSyntaxToken(content: code, type: "plain")] : tokens {
+            var content = AttributedString(token.content)
+            var attributes = AttributeContainer()
+            attributes.foregroundColor = color(forTokenType: token.type)
+            content.mergeAttributes(attributes, mergePolicy: .keepNew)
+            result.append(content)
+        }
+
+        guard !findQuery.isEmpty else { return result }
+        let plainText = String(result.characters)
+        var searchRange = plainText.startIndex..<plainText.endIndex
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+
+        while let matchRange = plainText.range(of: findQuery, options: options, range: searchRange) {
+            let startOffset = plainText.distance(from: plainText.startIndex, to: matchRange.lowerBound)
+            let endOffset = plainText.distance(from: plainText.startIndex, to: matchRange.upperBound)
+            let attrStart = result.characters.index(result.startIndex, offsetBy: startOffset)
+            let attrEnd = result.characters.index(result.startIndex, offsetBy: endOffset)
+
+            var container = AttributeContainer()
+            container.backgroundColor = Color.yellow.opacity(0.5)
+            result[attrStart..<attrEnd].mergeAttributes(container, mergePolicy: .keepNew)
+
+            searchRange = matchRange.upperBound..<plainText.endIndex
+        }
+
+        return result
+    }
+
+    private func color(forTokenType type: String) -> Color {
+        switch type {
+        case "keyword", "literal", "boolean":
+            return Color(red: 0.607592, green: 0.137526, blue: 0.576284)
+        case "builtin":
+            return Color(red: 0.224543, green: 0, blue: 0.628029)
+        case "string", "regex":
+            return Color(red: 0.77, green: 0.102, blue: 0.086)
+        case "char", "number":
+            return Color(red: 0.11, green: 0, blue: 0.81)
+        case "url":
+            return Color(red: 0.055, green: 0.055, blue: 1)
+        case "class-name":
+            return Color(red: 0.109812, green: 0.272761, blue: 0.288691)
+        case "function", "function-name":
+            return Color(red: 0.194184, green: 0.429349, blue: 0.454553)
+        case "variable", "property", "constant":
+            return Color(red: 0.194184, green: 0.429349, blue: 0.454553)
+        case "comment", "block-comment", "doc-comment":
+            return Color(red: 0.36526, green: 0.421879, blue: 0.475154)
+        case "preprocessor", "directive":
+            return Color(red: 0.391471, green: 0.220311, blue: 0.124457)
+        case "attribute", "attr-name":
+            return Color(red: 0.505801, green: 0.371396, blue: 0.012096)
+        case "inserted":
+            return Color(red: 0.203922, green: 0.780392, blue: 0.349020)
+        case "deleted":
+            return Color(red: 1, green: 0.219608, blue: 0.235294)
+        default:
+            return .primary
         }
     }
 }
