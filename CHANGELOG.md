@@ -1,3 +1,14 @@
+## 0.2.4 - 2026-04-17
+
+### Fixes
+- Restore Cmd-F find command availability and focus the find field when opened
+- Keep search result counts, scrolling, and highlights consistent across markdown
+  text and fenced code blocks
+- Preserve code block syntax highlighting while applying search highlights
+
+### Performance
+- Avoid re-rendering unrelated markdown segments while typing in the find field
+
 ## 0.2.3 - 2026-04-15
 
 ### Performance
